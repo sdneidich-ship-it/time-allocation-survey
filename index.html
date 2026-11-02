@@ -1,0 +1,1237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Time Allocation Survey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Base rules the artifact host used to provide. */
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; }
+  /* Layout: a timesheet. One ruled column of tasks, three hour columns (historical, current, future),
+     totals pinned above so every column visibly lands on 80. Owners get a second tab with results. */
+  :root {
+    --bg: #f9f9f7;
+    --surface: #fcfcfb;
+    --band: #f0efec;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --line: #e1e0d9;
+    --line-2: #c3c2b7;
+    --accent: #256abf;
+    --ok: #006300;
+    --bad: #d03b3b;
+    --g-home: #2a78d6;
+    --g-cust: #eb6834;
+    --g-travel: #1baf7a;
+    --g-other: #898781;
+    --on-seg: #0b0b0b;
+    --g-est: #f4b298;
+    --on-est: #0b0b0b;
+    --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --col: 96px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0d0d; --surface: #1a1a19; --band: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
+      --muted: #898781; --line: #2c2c2a; --line-2: #383835; --accent: #6da7ec; --ok: #0ca30c; --bad: #e66767;
+      --g-home: #3987e5; --g-cust: #d95926; --g-travel: #199e70; --g-other: #898781; --g-est: #833d20; --on-est: #f0efec;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0d0d; --surface: #1a1a19; --band: #232321; --ink: #f0efec; --ink-2: #c3c2b7;
+    --muted: #898781; --line: #2c2c2a; --line-2: #383835; --accent: #6da7ec; --ok: #0ca30c; --bad: #e66767;
+    --g-home: #3987e5; --g-cust: #d95926; --g-travel: #199e70; --g-other: #898781; --g-est: #833d20; --on-est: #f0efec;
+    color-scheme: dark;
+  }
+
+  body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font-body); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  .wrap {
+    max-width: 860px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px 56px;
+    display: flex; flex-direction: column; gap: 28px;
+  }
+  .stack { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+  h1 { font-size: 28px; line-height: 1.15; font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0; text-wrap: balance; }
+  h3 { font-size: 14px; font-weight: 600; margin: 0; }
+  p { margin: 0; }
+  .small { font-size: 12.5px; color: var(--ink-2); }
+  section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .intro p { max-width: 64ch; }
+
+  .tabs { display: inline-flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; align-self: flex-start; }
+  .tab { font: 500 13.5px var(--font-body); padding: 7px 14px; border: 0; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+  .tab + .tab { border-left: 1px solid var(--line-2); }
+  .tab[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+  .proto { border: 1px dashed var(--line-2); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  .proto p { flex: 1 1 260px; font-size: 13px; color: var(--ink-2); }
+  .proto .acts { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+
+  .btn { font: 500 13.5px var(--font-body); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .btn:hover:not(:disabled) { background: var(--band); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn.primary:hover:not(:disabled) { background: var(--ink); opacity: .88; }
+  .btn.sm { padding: 4px 9px; font-size: 12.5px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .linkbtn { font: inherit; font-weight: 500; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+  .check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+
+  .views { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+  .view { border-top: 2px solid var(--ink); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .view p { font-size: 13.5px; color: var(--ink-2); }
+
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field label, .lbl { font-size: 13px; font-weight: 500; }
+  .txt, select.txt, textarea.txt { font: 400 15px var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 8px 10px; width: 100%; min-width: 0; }
+  textarea.txt { resize: vertical; line-height: 1.4; }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+  .tools .small { flex: 1 1 240px; }
+  .status { min-height: 1.5em; font-size: 13px; color: var(--ink-2); }
+
+  /* The timesheet grid. Every row shares one template so columns line up. */
+  .sheet { border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); }
+  .line { display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, var(--col)); column-gap: 12px; align-items: center; padding-inline: 14px; }
+  .head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line-2); border-radius: 10px 10px 0 0; padding-block: 10px; align-items: start; }
+  .head.flat { position: static; }
+  .hlab { font-size: 12.5px; color: var(--ink-2); }
+  .hlab b { display: block; color: var(--ink); font-weight: 600; font-size: 13px; }
+  .hc { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .hname { font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+  .htot { font: 600 19px/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+  .htot .of { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .hbar, .sbar { display: block; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .hbar i, .sbar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--accent); }
+  .hstat { font-size: 12px; color: var(--ink-2); }
+  .hc.ok .htot, .hc.ok .hstat { color: var(--ok); }
+  .hc.ok .hbar i { background: var(--ok); }
+
+  .group { background: var(--band); border-top: 1px solid var(--line-2); padding-block: 10px; }
+  .head + .group, .head + div > .group:first-child { border-top: 0; }
+  .gtitle { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .sw { width: 10px; height: 10px; border-radius: 2px; background: var(--gc); flex: none; }
+  .ghint { margin-left: 18px; font-size: 12.5px; color: var(--ink-2); }
+  .sub { text-align: right; font: 500 14px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .subhead { padding: 10px 14px 2px; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+  .subnote { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; color: var(--muted); }
+  .row { padding-block: 8px; border-top: 1px solid var(--line); }
+  .subhead + .row { border-top: 0; }
+  .name { font-weight: 500; }
+  .note { display: block; font-size: 12.5px; color: var(--ink-2); }
+  .tag { display: inline-block; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 1px; }
+  .num { font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; width: 100%; min-width: 0; padding: 7px 9px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface); color: var(--ink); -moz-appearance: textfield; appearance: textfield; }
+  .num::-webkit-inner-spin-button, .num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .num::placeholder { color: var(--muted); opacity: .6; }
+  .num.invalid { border-color: var(--bad); }
+  .extra { grid-column: 1 / -1; padding-top: 6px; }
+  .row.indent .lab { padding-left: 18px; }
+  .row.subline { border-top: 1px dashed var(--line-2); }
+  .row.subline .name { font-weight: 600; }
+  .row.subline .sub { color: var(--ink); }
+  .row.subline .rv { font-weight: 600; }
+  .row.memo .name { font-weight: 400; }
+  .tag.m { color: var(--ink-2); border-color: var(--line-2); }
+  .rv { text-align: right; font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  .colhead { padding-block: 0 6px; }
+  .srow { padding-block: 9px; border-top: 1px solid var(--line); }
+  .scell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .sval { font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .sbar i { background: var(--gc); }
+  .summary { border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); padding-block: 12px 4px; }
+  .summary .srow:first-of-type { border-top: 1px solid var(--line-2); }
+  .summary.means { padding-block: 0 0; }
+  .summary.means .group:first-child { border-top: 0; }
+
+  .issues { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+  .issue { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .qs { display: grid; gap: 14px; }
+  details { font-size: 13px; color: var(--ink-2); }
+  summary { cursor: pointer; padding-block: 4px; }
+  #csv { font: 400 12.5px/1.45 var(--font-mono); height: 180px; margin-top: 6px; }
+
+  .answers, .resp { list-style: none; margin: 0; padding: 0; }
+  .answers { display: flex; flex-direction: column; gap: 10px; }
+  .answers li { border-left: 2px solid var(--line-2); padding-left: 10px; overflow-wrap: anywhere; }
+  .answers .meta { display: block; font-size: 12px; color: var(--ink-2); }
+  .resp { border-top: 1px solid var(--line-2); }
+  .resp li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 9px 2px; border-bottom: 1px solid var(--line); align-items: center; }
+  .rname { font-weight: 500; overflow-wrap: anywhere; }
+  .rmeta { font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+  .rb { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .keys { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); }
+  .keys li { display: inline-flex; align-items: center; gap: 6px; }
+  .keys .k { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .keys .kt { width: 16px; height: 0; border-top: 2px dashed var(--ink-2); flex: none; }
+  .bars { display: flex; flex-direction: column; gap: 12px; }
+  .brow { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 4px 12px; align-items: center; }
+  .bname { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .bname .n { font-size: 12.5px; font-weight: 600; }
+  .bname .t { font: 600 21px/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+  .bname .s { font-size: 12px; color: var(--ink-2); }
+  .plot { position: relative; height: 36px; min-width: 0; }
+  .track { display: flex; height: 100%; }
+  .seg { box-sizing: border-box; min-width: 0; display: flex; align-items: center; justify-content: center; border-right: 2px solid var(--bg); background: var(--sc); color: var(--on-seg); font: 600 12px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+  .seg:last-child { border-right: 0; border-radius: 0 4px 4px 0; }
+  .seg:hover { filter: brightness(1.1); }
+  .seg:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+  .target { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px dashed var(--ink-2); pointer-events: none; z-index: 2; }
+  .brow.axis .plot { height: 20px; border-top: 1px solid var(--line-2); }
+  .tick { position: absolute; top: 4px; transform: translateX(-50%); font: 11.5px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  #tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0, 0, 0, .14); max-width: 220px; }
+  #tip b { display: block; font: 600 14px var(--font-mono); }
+  .empty { border: 1px dashed var(--line-2); border-radius: 8px; padding: 16px; color: var(--ink-2); font-size: 14px; max-width: 64ch; }
+  .block { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+  @media (max-width: 640px) {
+    .line { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 8px; padding-inline: 12px; }
+    .lab { grid-column: 1 / -1; }
+    .hlab { display: none; }
+    .row, .group, .srow { row-gap: 6px; }
+    .row { padding-block: 10px; }
+    .subhead { padding-inline: 12px; }
+    .num { padding: 9px 9px; }
+    h1 { font-size: 24px; }
+    .brow { grid-template-columns: minmax(0, 1fr); }
+    .bname { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+    .brow.axis > :first-child { display: none; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .hbar i, .sbar i { transition: width .2s ease; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header style="display:flex;flex-direction:column;gap:14px">
+    <h1>Time Allocation Survey</h1>
+    <div class="tabs" id="tabs" hidden>
+      <button class="tab" type="button" id="tab-survey" aria-pressed="true">Survey</button>
+      <button class="tab" type="button" id="tab-results" aria-pressed="false">Results</button>
+    </div>
+  </header>
+
+  <section id="gate" hidden>
+    <h2>Survey owner</h2>
+    <p class="small">Enter the owner key to see results. Respondents never need this.</p>
+    <form class="tools" id="gate-form" autocomplete="off">
+      <div class="field" style="flex:0 1 320px">
+        <label for="owner-key">Owner key</label>
+        <input class="txt" type="password" id="owner-key" autocomplete="off">
+      </div>
+      <button class="btn primary" type="submit">Open results</button>
+      <span class="small" id="gate-msg" role="status" aria-live="polite"></span>
+    </form>
+  </section>
+
+  <div class="stack" id="view-survey">
+    <div class="proto" id="owner" hidden>
+      <p><b>Survey owner tools.</b> Only editors see this panel. Sample answers are for previewing the form and cannot be submitted.</p>
+      <div class="acts">
+        <button class="btn" type="button" id="btn-sample">Load sample answers</button>
+        <button class="btn" type="button" id="btn-clear">Clear answers</button>
+      </div>
+    </div>
+
+    <section class="intro">
+      <p>The purpose of this Time Allocation Survey is to understand how you used your time in the past, how you use it today, and how you would ideally use it in the future.</p>
+      <p>For each view, think of a typical two-week period. The target is 80 working hours, but enter more if that is what a typical two weeks really looks like. Split your hours across the activities below. It takes about 10 minutes.</p>
+      <div class="views">
+        <div class="view">
+          <h3>Historical ideal</h3>
+          <p>A time when you feel your time was well allocated and it led to success.</p>
+          <div class="field">
+            <label for="period">Period you have in mind</label>
+            <input class="txt" type="text" id="period" placeholder="e.g. 2023" autocomplete="off">
+          </div>
+        </div>
+        <div class="view">
+          <h3>Current normal</h3>
+          <p>A typical, or median, two weeks.</p>
+        </div>
+        <div class="view">
+          <h3>Future ideal</h3>
+          <p>If you had a magic wand and could reasonably allocate your time the way you feel would be most effective, what would it look like?</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>About you <span class="small" style="font-weight:400">(optional)</span></h2>
+      <div class="fields">
+        <div class="field">
+          <label for="name">Your name</label>
+          <input class="txt" type="text" id="name" placeholder="Leave blank to stay anonymous" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="role">Role</label>
+          <select class="txt" id="role"></select>
+        </div>
+        <div class="field">
+          <label for="tenure">Time in current role</label>
+          <select class="txt" id="tenure"></select>
+        </div>
+        <div class="field">
+          <label for="territory">Territory or region</label>
+          <input class="txt" type="text" id="territory" placeholder="e.g. Southeast" autocomplete="off">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Your hours</h2>
+      <div class="tools">
+        <p class="small">Fill in Current normal first, then start the other two from it and adjust.</p>
+        <button class="btn" type="button" id="btn-to-hist">Copy Current to Historical</button>
+        <button class="btn" type="button" id="btn-to-fut">Copy Current to Future</button>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <div class="sheet" id="sheet">
+        <div class="line head" id="head">
+          <div class="lab hlab"><b>Hours in a typical two weeks</b>Target: 80 per column</div>
+          <div class="hc" id="hc0"><span class="hname">Historical ideal</span><span class="htot"><b>0</b><span class="of"> / 80</span></span><span class="hbar"><i></i></span><span class="hstat"></span></div>
+          <div class="hc" id="hc1"><span class="hname">Current normal</span><span class="htot"><b>0</b><span class="of"> / 80</span></span><span class="hbar"><i></i></span><span class="hstat"></span></div>
+          <div class="hc" id="hc2"><span class="hname">Future ideal</span><span class="htot"><b>0</b><span class="of"> / 80</span></span><span class="hbar"><i></i></span><span class="hstat"></span></div>
+        </div>
+        <div id="sheet-body"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Your split</h2>
+      <div class="summary" id="summary">
+        <div class="line colhead">
+          <div class="lab hlab"></div>
+          <div class="hname">Historical ideal</div>
+          <div class="hname">Current normal</div>
+          <div class="hname">Future ideal</div>
+        </div>
+        <div id="summary-body"></div>
+      </div>
+      <p class="small">Bars are drawn against an 80-hour two-week period.</p>
+    </section>
+
+    <section>
+      <h2>Two last questions <span class="small" style="font-weight:400">(optional)</span></h2>
+      <div class="qs">
+        <div class="field">
+          <label for="q-stop">Which task would you most like to stop doing or hand off, and why?</label>
+          <textarea class="txt" id="q-stop" rows="3"></textarea>
+        </div>
+        <div class="field">
+          <label for="q-hours">If you got five hours back every two weeks, what would you do with them?</label>
+          <textarea class="txt" id="q-hours" rows="3"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Submit</h2>
+      <p class="small" id="saved-note" hidden></p>
+      <div class="issues" id="issues"></div>
+      <div class="tools">
+        <button class="btn primary" type="button" id="submit" disabled>Submit my answers</button>
+        <button class="btn" type="button" id="copy" hidden>Copy my answers as CSV</button>
+        <span class="small" id="submit-msg" role="status" aria-live="polite">Checking whether saving is available.</span>
+      </div>
+      <p class="small" id="who-sees" hidden>Your answers go to the survey owner. If you leave your name blank they are anonymous. On this device you can come back and submit again to replace them.</p>
+      <details id="csv-details">
+        <summary>Show the text</summary>
+        <textarea class="txt" id="csv" readonly aria-label="Answers as CSV text"></textarea>
+      </details>
+    </section>
+  </div>
+
+  <div class="stack" id="view-results" hidden>
+    <section>
+      <h2>Results</h2>
+      <p class="small" id="res-sub"></p>
+      <div class="banner empty" id="res-preview-note" hidden>Sample data. Nothing here is saved.</div>
+      <div class="tools">
+        <div class="field" style="flex:0 1 260px">
+          <label for="res-role">Role</label>
+          <select class="txt" id="res-role"></select>
+        </div>
+        <button class="btn" type="button" id="btn-refresh">Refresh</button>
+        <button class="btn" type="button" id="btn-dl">Download CSV</button>
+        <button class="btn" type="button" id="btn-copycsv">Copy CSV</button>
+        <button class="btn" type="button" id="btn-preview">Preview with sample responses</button>
+      </div>
+      <p class="status" id="res-status" role="status" aria-live="polite"></p>
+      <div class="empty" id="res-empty" hidden></div>
+    </section>
+
+    <div class="stack" id="res-body" hidden>
+      <section>
+        <h2>Average hours per two weeks</h2>
+        <div class="rb" id="res-bars"></div>
+      </section>
+      <section>
+        <h2>Customer meeting hours</h2>
+        <div class="rb" id="res-meet"></div>
+      </section>
+      <section>
+        <h2>Average hours by activity</h2>
+        <div class="summary means" id="res-means"></div>
+      </section>
+      <section>
+        <h2>In their words</h2>
+        <div class="block"><h3>Task to stop doing or hand off</h3><ul class="answers" id="ans-stop"></ul></div>
+        <div class="block"><h3>What five hours back would go to</h3><ul class="answers" id="ans-hours"></ul></div>
+      </section>
+      <section>
+        <h2>Respondents</h2>
+        <ul class="resp" id="res-people"></ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  /*DATA_START*/
+  var SCEN = ['Historical ideal', 'Current normal', 'Future ideal'];
+  var TARGET = 80;
+  var GROUPS = [
+    { id: 'travel', name: 'Travel', hint: 'Time in transit counts as travel, even outside normal business hours or while you are working on the way.' },
+    { id: 'cust', name: 'Customer meetings', hint: 'Time with customers and the prep that goes into it, by format.' },
+    { id: 'home', name: 'Home base', hint: 'Desk work that is not in front of a customer.' },
+    { id: 'other', name: 'Other', hint: 'Anything that does not fit above.' }
+  ];
+  var ROWS = [
+    { id: 'tlocal', g: 'travel', label: 'Local travel', note: 'Commuting, car, walking, local transit, and time between meetings at a site', v: [10, 7, 9] },
+    { id: 'tregion', g: 'travel', label: 'Regional travel', note: 'Time on planes and trains, airport time, and long drives or day trips beyond what you would call local. Not overnight rest. Local travel at your destination goes under Local travel.', v: [6, 3, 5] },
+    { id: 'ep', g: 'cust', label: 'Phone calls', v: [4, 4, 4] },
+    { id: 'epp', g: 'cust', label: 'Prep for phone calls', indent: true, v: [1, 1, 1] },
+    { id: 'ev', g: 'cust', label: 'Videoconferences', v: [3, 7, 6] },
+    { id: 'evp', g: 'cust', label: 'Prep for videoconferences', indent: true, v: [1, 2, 1] },
+    { id: 'ei', g: 'cust', label: 'In-person meetings', note: 'Includes seminars', v: [15, 5, 19] },
+    { id: 'eip', g: 'cust', label: 'Prep for in-person meetings', note: 'Includes seminar prep', indent: true, v: [3, 2, 4] },
+    { id: 'newshare', g: 'cust', memo: true, of: ['ep', 'ev', 'ei'], label: 'Of those, hours with new customers and prospects', note: 'A new customer has not bought from us yet. Not added to your total.', v: [5, 3, 10] },
+    { id: 'admin', g: 'home', label: 'General admin', note: 'HR training, timecards', v: [3, 5, 1] },
+    { id: 'salesadmin', g: 'home', label: 'Sales admin', note: 'Pipeline, territory and account planning', v: [3, 3, 3] },
+    { id: 'internal', g: 'home', label: 'Internal meetings', v: [4, 8, 3] },
+    { id: 'esa', g: 'home', label: 'ESA logging', note: 'Includes CRM updates and notes', v: [2, 5, 1] },
+    { id: 'expense', g: 'home', label: 'Expense reports', v: [1, 2, 1] },
+    { id: 'quote', g: 'home', label: 'CRM updates', note: 'Quote Requests and Cases', v: [6, 7, 4] },
+    { id: 'prospecting', g: 'home', label: 'Prospecting', note: 'Lead research and outreach', v: [4, 3, 6] },
+    { id: 'email', g: 'home', label: 'Email', note: 'Triage, replies and customer follow-up', v: [10, 12, 10] },
+    { id: 'other', g: 'other', label: 'Something not listed', v: [4, 4, 2] }
+  ];
+  var SAMPLE_NOTE = 'Support escalations and order troubleshooting';
+  var ROLES = ['Account manager', 'Field application scientist', 'Sales or regional manager', 'Other'];
+  var TENURES = ['Under 1 year', '1 to 3 years', '3 to 7 years', 'More than 7 years'];
+  /*DATA_END*/
+
+  var $ = function (id) { return document.getElementById(id); };
+  var ROW_MAX = 200;
+  var vals = {}, inputs = {}, rowEls = {}, subEls = [], groupSubs = {}, sumEls = {}, shareCells = [];
+  var memoSubs = {}, undoSnap = null, touched = false, sampleLoaded = false, busy = false;
+  var CFG = window.TA_CONFIG || {}, ENDPOINT = (CFG.endpoint || '').trim();
+  var ownerKey = '', isAdmin = false, canWrite = null, capsReady = true;
+  function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
+  function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } }
+  function ssSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) {} }
+  function newId() {
+    var a = new Uint8Array(12);
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    return 'r' + Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  var uid = lsGet('ta_uid');
+  if (!uid) { uid = newId(); lsSet('ta_uid', uid); }
+  var liveRes = [], preview = false, sampleRes = null, view = 'survey', renderToken = 0, lastDelta = null;
+  var GN = {};
+  GROUPS.forEach(function (g) { GN[g.id] = g.name; });
+
+  function h(tag, cls, html) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function round2(x) { return Math.round(x * 100) / 100; }
+  function fmt(x) { return String(round2(x)); }
+  function f1(x) { return (Math.round(x * 10) / 10).toFixed(1); }
+  function zeroVals() { ROWS.forEach(function (r) { vals[r.id] = [0, 0, 0]; }); }
+  function sampleVals() { ROWS.forEach(function (r) { vals[r.id] = r.v.slice(); }); }
+  zeroVals();
+
+  function fillSelect(id, arr, first) {
+    var s = $(id);
+    s.innerHTML = '';
+    var o = document.createElement('option');
+    o.value = ''; o.textContent = first; s.appendChild(o);
+    arr.forEach(function (t) { var p = document.createElement('option'); p.value = t; p.textContent = t; s.appendChild(p); });
+  }
+  fillSelect('role', ROLES, 'Select');
+  fillSelect('tenure', TENURES, 'Select');
+  fillSelect('res-role', ROLES, 'All roles');
+
+  /* ---------- Build the timesheet ---------- */
+  var body = $('sheet-body');
+  GROUPS.forEach(function (g) {
+    var gl = h('div', 'line group');
+    gl.style.setProperty('--gc', 'var(--g-' + g.id + ')');
+    gl.innerHTML = '<div class="lab"><div class="gtitle"><span class="sw"></span>' + g.name + '</div><div class="ghint">' + g.hint + '</div></div><div class="sub"></div><div class="sub"></div><div class="sub"></div>';
+    body.appendChild(gl);
+    groupSubs[g.id] = gl.querySelectorAll('.sub');
+    var lastSub = null;
+    ROWS.filter(function (r) { return r.g === g.id; }).forEach(function (r) {
+      if (r.sub && r.sub !== lastSub) {
+        var s = h('div', 'subhead', r.sub + (r.subnote ? '<span class="subnote">' + r.subnote + '</span>' : ''));
+        body.appendChild(s);
+      }
+      lastSub = r.sub || null;
+      if (r.memo) {
+        var st = h('div', 'line row subline', '<div class="lab"><span class="name">Meeting hours subtotal</span><span class="note">Phone, video and in-person, not prep. Already counted above.</span></div><div class="sub"></div><div class="sub"></div><div class="sub"></div>');
+        body.appendChild(st);
+        memoSubs[r.id] = st.querySelectorAll('.sub');
+      }
+      var row = h('div', 'line row' + (r.memo ? ' memo' : '') + (r.indent ? ' indent' : ''));
+      row.innerHTML = '<div class="lab"><span class="name">' + r.label + (r.memo ? '<span class="tag m">Not in total</span>' : '') + '</span>' + (r.note ? '<span class="note">' + r.note + '</span>' : '') + '</div>';
+      inputs[r.id] = [];
+      for (var c = 0; c < 3; c++) {
+        var inp = h('input', 'num');
+        inp.type = 'number'; inp.step = '0.5'; inp.min = '0'; inp.max = String(ROW_MAX);
+        inp.setAttribute('inputmode', 'decimal');
+        inp.placeholder = '0';
+        inp.id = 'v-' + r.id + '-' + c;
+        inp.dataset.r = r.id; inp.dataset.c = c;
+        inp.setAttribute('aria-label', r.label + (r.sub ? ' (' + r.sub + ')' : '') + ', ' + SCEN[c] + ', hours');
+        row.appendChild(inp);
+        inputs[r.id].push(inp);
+      }
+      if (r.id === 'other') {
+        row.appendChild(h('div', 'extra', '<input class="txt" type="text" id="other-note" aria-label="What was it?" placeholder="What was it?" autocomplete="off">'));
+      }
+      body.appendChild(row);
+      rowEls[r.id] = row;
+    });
+  });
+
+  /* ---------- Build the summary ---------- */
+  var sb = $('summary-body');
+  GROUPS.forEach(function (g) {
+    var row = h('div', 'line srow');
+    row.style.setProperty('--gc', 'var(--g-' + g.id + ')');
+    row.innerHTML = '<div class="lab"><div class="gtitle"><span class="sw"></span>' + g.name + '</div></div>' +
+      [0, 1, 2].map(function () { return '<div class="scell"><span class="sval"></span><span class="sbar"><i></i></span></div>'; }).join('');
+    sb.appendChild(row);
+    sumEls[g.id] = row.querySelectorAll('.scell');
+  });
+  var shareRow = h('div', 'line srow', '<div class="lab"><div class="name">Customer meetings share</div><div class="note">of the hours you entered</div></div>' +
+    [0, 1, 2].map(function () { return '<div class="scell"><span class="sval"></span></div>'; }).join(''));
+  sb.appendChild(shareRow);
+  shareCells = shareRow.querySelectorAll('.sval');
+
+  function totals() {
+    var t = { all: [0, 0, 0] };
+    GROUPS.forEach(function (g) { t[g.id] = [0, 0, 0]; });
+    ROWS.forEach(function (r) {
+      if (r.memo) return;
+      for (var c = 0; c < 3; c++) { t[r.g][c] += vals[r.id][c]; t.all[c] += vals[r.id][c]; }
+    });
+    for (var k in t) { t[k] = t[k].map(round2); }
+    return t;
+  }
+
+  /* ---------- Survey view: update ---------- */
+  function update() {
+    var t = totals();
+    for (var c = 0; c < 3; c++) {
+      var hc = $('hc' + c), tot = t.all[c], d = round2(TARGET - tot);
+      hc.querySelector('.htot b').textContent = fmt(tot);
+      hc.querySelector('.hbar i').style.width = Math.min(100, tot / TARGET * 100) + '%';
+      hc.classList.remove('ok', 'over');
+      var st = hc.querySelector('.hstat');
+      if (d === 0) { hc.classList.add('ok'); st.textContent = 'On target'; }
+      else if (d > 0) { st.textContent = fmt(d) + ' h left'; }
+      else { hc.classList.add('over'); st.textContent = fmt(-d) + ' h over'; }
+      var scale = Math.max(TARGET, tot);
+      GROUPS.forEach(function (g) {
+        var v = t[g.id][c];
+        groupSubs[g.id][c].textContent = fmt(v);
+        var cell = sumEls[g.id][c];
+        cell.querySelector('.sval').textContent = fmt(v) + ' h';
+        cell.querySelector('.sbar i').style.width = (v / scale * 100) + '%';
+      });
+      shareCells[c].textContent = tot > 0 ? Math.round(t.cust[c] / tot * 100) + '%' : '0%';
+    }
+    ROWS.forEach(function (r) {
+      if (!r.memo) return;
+      for (var k = 0; k < 3; k++) {
+        var ms = 0;
+        r.of.forEach(function (id) { ms += vals[id][k]; });
+        memoSubs[r.id][k].textContent = fmt(ms);
+      }
+    });
+    updateSubmit(t);
+  }
+
+  function memoIssues() {
+    var out = [];
+    ROWS.forEach(function (r) {
+      if (!r.memo) return;
+      for (var c = 0; c < 3; c++) {
+        var cap = 0;
+        r.of.forEach(function (id) { cap += vals[id][c]; });
+        cap = round2(cap);
+        if (vals[r.id][c] > cap) out.push(SCEN[c] + ': ' + fmt(vals[r.id][c]) + ' h with new customers is more than your ' + fmt(cap) + ' h of meetings.');
+      }
+    });
+    return out;
+  }
+
+  function updateSubmit(t) {
+    t = t || totals();
+    var iss = $('issues');
+    iss.innerHTML = '';
+    var answered = true;
+    for (var c = 0; c < 3; c++) {
+      var d = round2(TARGET - t.all[c]);
+      if (t.all[c] <= 0) answered = false;
+      if (d > 0 && t.all[c] > 0) {
+        var line = h('div', 'issue');
+        line.appendChild(h('span', null, SCEN[c] + ' is ' + fmt(d) + ' h under the 80-hour target. You can submit as is, or add the rest.'));
+        var b = h('button', 'btn sm', 'Put ' + fmt(d) + ' h in Something not listed');
+        b.type = 'button'; b.dataset.fix = c;
+        line.appendChild(b);
+        iss.appendChild(line);
+      }
+    }
+    var memoOk = true;
+    memoIssues().forEach(function (m) {
+      memoOk = false;
+      var ml = h('div', 'issue');
+      ml.appendChild(h('span', null, m));
+      iss.appendChild(ml);
+    });
+    var canSave = !!(ENDPOINT && uid);
+    var msg = '';
+    if (!capsReady) msg = 'Checking whether saving is available.';
+    else if (!canSave) msg = 'Submitting is not set up yet. Tell the survey owner.';
+    else if (canWrite === false) msg = '';
+    else if (sampleLoaded) msg = 'Sample answers are loaded. Clear them before submitting.';
+    else if (!answered) msg = 'Enter hours for all three views to submit.';
+    else if (!memoOk) msg = 'Fix the new-customer hours above to submit.';
+    else if (busy) msg = 'Sending.';
+    var ready = capsReady && canSave && canWrite !== false && !sampleLoaded && answered && memoOk && !busy;
+    $('submit').disabled = !ready;
+    if (!busy || msg) $('submit-msg').textContent = msg;
+    $('copy').hidden = canSave;
+    $('who-sees').hidden = !(capsReady && canSave);
+  }
+
+  function setInputs() {
+    ROWS.forEach(function (r) {
+      for (var c = 0; c < 3; c++) {
+        var v = vals[r.id][c];
+        inputs[r.id][c].value = v ? String(v) : '';
+        inputs[r.id][c].classList.remove('invalid');
+      }
+    });
+  }
+
+  function snapshot() { return JSON.stringify({ v: vals, n: $('other-note').value, s: sampleLoaded }); }
+  function restore(s) {
+    var o = JSON.parse(s);
+    vals = o.v; $('other-note').value = o.n; sampleLoaded = !!o.s;
+    setInputs(); update();
+  }
+  function say(msg, canUndo) {
+    var s = $('status');
+    s.textContent = msg + ' ';
+    if (canUndo) {
+      var b = h('button', 'linkbtn', 'Undo');
+      b.type = 'button';
+      b.addEventListener('click', function () { restore(undoSnap); say('Undone.'); });
+      s.appendChild(b);
+    }
+  }
+
+  body.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t.classList || !t.classList.contains('num')) return;
+    touched = true;
+    var n = parseFloat(t.value);
+    vals[t.dataset.r][+t.dataset.c] = (isFinite(n) && n > 0) ? n : 0;
+    t.classList.toggle('invalid', t.value !== '' && (!(n >= 0) || n > ROW_MAX));
+    update();
+  });
+  ['name', 'role', 'tenure', 'territory', 'period', 'q-stop', 'q-hours', 'other-note'].forEach(function (id) {
+    $(id).addEventListener('input', function () { touched = true; });
+  });
+
+  $('issues').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-fix]') : null;
+    if (!b) return;
+    var c = +b.dataset.fix, d = round2(TARGET - totals().all[c]);
+    if (d <= 0) return;
+    undoSnap = snapshot();
+    vals.other[c] = round2(vals.other[c] + d);
+    touched = true;
+    setInputs(); update(); say('Added ' + fmt(d) + ' h to Something not listed for ' + SCEN[c] + '.', true);
+  });
+
+  $('btn-clear').addEventListener('click', function () {
+    undoSnap = snapshot();
+    zeroVals(); sampleLoaded = false;
+    $('other-note').value = '';
+    setInputs(); update(); say('Answers cleared.', true);
+  });
+  $('btn-sample').addEventListener('click', function () {
+    undoSnap = snapshot();
+    sampleVals(); sampleLoaded = true; $('other-note').value = SAMPLE_NOTE;
+    setInputs(); update(); say('Sample answers loaded. They cannot be submitted.', true);
+  });
+  function copyFromCurrent(col, name) {
+    undoSnap = snapshot();
+    ROWS.forEach(function (r) { vals[r.id][col] = vals[r.id][1]; });
+    touched = true;
+    setInputs(); update(); say('Copied Current normal to ' + name + '.', true);
+  }
+  $('btn-to-hist').addEventListener('click', function () { copyFromCurrent(0, 'Historical ideal'); });
+  $('btn-to-fut').addEventListener('click', function () { copyFromCurrent(2, 'Future ideal'); });
+
+  /* ---------- Saving a response ---------- */
+  function collectResponse() {
+    var rows = {};
+    ROWS.forEach(function (r) { rows[r.id] = vals[r.id].slice(); });
+    return {
+      v: 1,
+      submittedAt: new Date().toISOString(),
+      name: $('name').value.trim(), role: $('role').value, tenure: $('tenure').value, territory: $('territory').value.trim(), period: $('period').value.trim(),
+      rows: rows, otherNote: $('other-note').value.trim(),
+      qStop: $('q-stop').value.trim(), qHours: $('q-hours').value.trim()
+    };
+  }
+  function applySaved(d) {
+    ROWS.forEach(function (r) {
+      var v = d.rows && d.rows[r.id];
+      vals[r.id] = (v && v.length === 3) ? v.map(function (x) { return +x || 0; }) : [0, 0, 0];
+    });
+    $('name').value = d.name || ''; $('role').value = d.role || ''; $('tenure').value = d.tenure || '';
+    $('territory').value = d.territory || ''; $('period').value = d.period || '';
+    $('other-note').value = d.otherNote || '';
+    $('q-stop').value = d.qStop || ''; $('q-hours').value = d.qHours || '';
+    sampleLoaded = false;
+    setInputs(); update();
+  }
+  function whenText(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+  function showSavedNote(iso, loaded) {
+    var n = $('saved-note');
+    n.hidden = false;
+    n.textContent = (loaded ? 'You submitted on ' : 'Saved on ') + whenText(iso) + '. Changing your answers and submitting again replaces that response.';
+  }
+  $('submit').addEventListener('click', function () {
+    if (busy) return;
+    var data = collectResponse();
+    busy = true; update();
+    postJson(Object.assign({ action: 'submit', id: uid }, data)).then(function () {
+      busy = false; touched = true;
+      lsSet('ta_last', JSON.stringify(data));
+      showSavedNote(data.submittedAt, false);
+      update();
+      $('submit-msg').textContent = 'Thank you. Your answers were sent.';
+    }, function (e) {
+      busy = false; update();
+      var m = 'Could not send. Check your connection and try again.';
+      if (e && e.error === 'busy') m = 'The survey is busy. Wait a moment and try again.';
+      $('submit-msg').textContent = m;
+    });
+  });
+
+  /* ---------- CSV helpers ---------- */
+  function q(s) { s = String(s == null ? '' : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function toCsv(rows) { return rows.map(function (r) { return r.map(q).join(','); }).join('\n'); }
+  function buildCsv() {
+    var out = [];
+    out.push(['Time Allocation Survey']);
+    out.push(['Role', $('role').value]);
+    out.push(['Time in current role', $('tenure').value]);
+    out.push(['Territory or region', $('territory').value]);
+    out.push(['Historical period in mind', $('period').value]);
+    out.push([]);
+    out.push(['Category', 'Item', 'Detail', SCEN[0] + ' (h)', SCEN[1] + ' (h)', SCEN[2] + ' (h)']);
+    ROWS.forEach(function (r) {
+      var detail = r.sub || '';
+      if (r.id === 'other') detail = $('other-note').value;
+      if (r.memo) detail = 'Memo, not in total';
+      out.push([GN[r.g], r.label, detail].concat(vals[r.id]));
+    });
+    out.push(['Total', '', ''].concat(totals().all));
+    out.push([]);
+    out.push(['Task to stop or hand off', $('q-stop').value]);
+    out.push(['What five hours back would go to', $('q-hours').value]);
+    return toCsv(out);
+  }
+  function copyText(txt, msgEl, taEl, detEl) {
+    var fallback = function () {
+      if (detEl) detEl.open = true;
+      taEl.value = txt; taEl.focus(); taEl.select();
+      msgEl.textContent = 'Select the text and copy it.';
+    };
+    try {
+      navigator.clipboard.writeText(txt).then(function () { msgEl.textContent = 'Copied. Paste it into a spreadsheet.'; }, fallback);
+    } catch (e) { fallback(); }
+  }
+  $('copy').addEventListener('click', function () { copyText(buildCsv(), $('submit-msg'), $('csv'), $('csv-details')); });
+  $('csv-details').addEventListener('toggle', function () { if ($('csv-details').open) $('csv').value = buildCsv(); });
+
+  /* ---------- Results (owner view) ---------- */
+  function rng(seed) { return function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; }; }
+  function makeSampleResponses() {
+    var rand = rng(11), out = [];
+    var stops = ['Expense reports. They take an hour every time and add nothing for the customer.', 'Re-entering the same call notes in two systems.', 'Internal status meetings that repeat what is already in the CRM.', 'Quote revisions that sit waiting on pricing approval.', 'Timecards and mandatory trainings scheduled in the middle of customer weeks.', 'ESA logging.'];
+    var uses = ['More in-person time with the accounts that are about to buy.', 'Follow-up with new prospects, which I rarely get to.', 'Visiting labs that have not seen us in a year.', 'Prep for seminars so they bring in real leads.', 'Training on the newest products.'];
+    var roleSeq = ['Account manager', 'Account manager', 'Field application scientist', 'Field application scientist', 'Account manager', 'Sales or regional manager', 'Other', 'Account manager'];
+    for (var i = 0; i < 8; i++) {
+      var rows = {};
+      ROWS.forEach(function (r) { rows[r.id] = [0, 0, 0]; });
+      for (var c = 0; c < 3; c++) {
+        var raw = {}, sum = 0;
+        ROWS.forEach(function (r) { if (r.id === 'other' || r.memo) return; var x = r.v[c] * (0.55 + rand() * 0.9); raw[r.id] = x; sum += x; });
+        var scale = (TARGET - 3) / sum, used = 0, big = null;
+        for (var id in raw) {
+          var v = Math.round(raw[id] * scale * 2) / 2;
+          rows[id][c] = v; used += v;
+          if (big === null || v > rows[big][c]) big = id;
+        }
+        var left = round2(TARGET - used);
+        if (left < 0) { rows[big][c] = round2(rows[big][c] + left); left = 0; }
+        rows.other[c] = left;
+        ROWS.forEach(function (r) {
+          if (!r.memo) return;
+          var meet = 0;
+          r.of.forEach(function (id) { meet += rows[id][c]; });
+          rows[r.id][c] = Math.round(meet * (0.1 + rand() * 0.4) * 2) / 2;
+        });
+      }
+      out.push({
+        _id: 'sample' + i, role: roleSeq[i], tenure: TENURES[Math.floor(rand() * TENURES.length)],
+        territory: 'Sample region ' + (i % 3 + 1), period: '', rows: rows, otherNote: '',
+        qStop: stops[i % stops.length], qHours: uses[i % uses.length],
+        submittedAt: new Date(Date.now() - i * 3600000 * 7).toISOString(), _sample: true
+      });
+    }
+    return out;
+  }
+
+  function currentList() {
+    var src = preview ? (sampleRes || (sampleRes = makeSampleResponses())) : liveRes;
+    var role = $('res-role').value;
+    return role ? src.filter(function (r) { return r.role === role; }) : src;
+  }
+
+  function renderResults() {
+    var list = currentList(), n = list.length;
+    var total = preview ? (sampleRes || []).length : liveRes.length;
+    $('res-preview-note').hidden = !preview;
+    $('btn-preview').textContent = preview ? 'Back to live responses' : 'Preview with sample responses';
+    $('res-sub').textContent = total + (total === 1 ? ' response' : ' responses') + (preview ? ' (sample)' : '') + (n !== total ? ', ' + n + ' shown for this role' : '') + '.';
+    var tabCount = liveRes.length;
+    $('tab-results').textContent = 'Results' + (tabCount ? ' (' + tabCount + ')' : '');
+    var empty = $('res-empty'), bodyEl = $('res-body');
+    $('btn-dl').disabled = $('btn-copycsv').disabled = n === 0;
+    if (n === 0) {
+      bodyEl.hidden = true; empty.hidden = false;
+      empty.textContent = total === 0
+        ? 'No responses yet.'
+        : 'No responses from this role yet.';
+      return;
+    }
+    empty.hidden = true; bodyEl.hidden = false;
+
+    /* means, treating a missing row as 0 so each column still adds to 80 */
+    var mean = {}, anyHas = {};
+    ROWS.forEach(function (r) {
+      mean[r.id] = [0, 0, 0];
+      list.forEach(function (x) {
+        var v = x.rows && x.rows[r.id];
+        if (v) { anyHas[r.id] = true; for (var c = 0; c < 3; c++) mean[r.id][c] += (+v[c] || 0); }
+      });
+      for (var c = 0; c < 3; c++) mean[r.id][c] /= n;
+    });
+    var gm = {}, tot = [0, 0, 0];
+    GROUPS.forEach(function (g) { gm[g.id] = [0, 0, 0]; });
+    ROWS.forEach(function (r) { if (r.memo) return; for (var c = 0; c < 3; c++) { gm[r.g][c] += mean[r.id][c]; tot[c] += mean[r.id][c]; } });
+
+    var html = '<div class="line head flat"><div class="lab hlab"><b>Average hours in two weeks</b>' + n + (n === 1 ? ' response' : ' responses') + '</div>';
+    for (var c = 0; c < 3; c++) html += '<div class="hc"><span class="hname">' + SCEN[c] + '</span><span class="htot"><b>' + f1(tot[c]) + '</b></span></div>';
+    html += '</div><div>';
+    GROUPS.forEach(function (g) {
+      html += '<div class="line group" style="--gc:var(--g-' + g.id + ')"><div class="lab"><div class="gtitle"><span class="sw"></span>' + g.name + '</div></div>';
+      for (var c2 = 0; c2 < 3; c2++) html += '<div class="sub">' + f1(gm[g.id][c2]) + '</div>';
+      html += '</div>';
+      ROWS.filter(function (r) { return r.g === g.id; }).forEach(function (r) {
+        if (r.memo) {
+          html += '<div class="line row subline"><div class="lab"><span class="name">Meeting hours subtotal</span></div>';
+          for (var c5 = 0; c5 < 3; c5++) {
+            var ms = 0;
+            r.of.forEach(function (id) { ms += mean[id][c5]; });
+            html += '<div class="rv">' + f1(ms) + '</div>';
+          }
+          html += '</div>';
+        }
+        html += '<div class="line row' + (r.memo ? ' memo' : '') + (r.indent ? ' indent' : '') + '"><div class="lab"><span class="name">' + r.label + '</span></div>';
+        for (var c3 = 0; c3 < 3; c3++) html += '<div class="rv">' + f1(mean[r.id][c3]) + '</div>';
+        html += '</div>';
+      });
+    });
+    html += '</div>';
+    $('res-means').innerHTML = html;
+    renderBars($('res-bars'), {
+      axis: niceAxis(Math.max.apply(null, tot), 100), target: TARGET,
+      keys: GROUPS.map(function (g) { return { name: g.name, color: 'var(--g-' + g.id + ')' }; }).concat([{ name: TARGET + ' h target', dash: true }]),
+      rows: [0, 1, 2].map(function (c) {
+        return {
+          name: SCEN[c], big: f1(tot[c]) + ' h',
+          aria: SCEN[c] + ', ' + f1(tot[c]) + ' hours in total',
+          segs: GROUPS.map(function (g) { return { v: gm[g.id][c], color: 'var(--g-' + g.id + ')', name: g.name + ', ' + SCEN[c] }; })
+        };
+      })
+    });
+    var memoRow = null;
+    ROWS.forEach(function (r) { if (r.memo) memoRow = r; });
+    if (memoRow) {
+      var meet = [0, 0, 0], nw = [0, 0, 0];
+      for (var c6 = 0; c6 < 3; c6++) {
+        memoRow.of.forEach(function (id) { meet[c6] += mean[id][c6]; });
+        nw[c6] = Math.min(mean[memoRow.id][c6], meet[c6]);
+      }
+      renderBars($('res-meet'), {
+        axis: niceAxis(Math.max.apply(null, meet), 0),
+        keys: [{ name: 'New customers and prospects', color: 'var(--g-cust)' }, { name: 'Established customers', color: 'var(--g-est)' }],
+        rows: [0, 1, 2].map(function (c) {
+          return {
+            name: SCEN[c], big: f1(meet[c]) + ' h',
+            small: meet[c] > 0 ? Math.round(nw[c] / meet[c] * 100) + '% new' : '',
+            aria: SCEN[c] + ', ' + f1(meet[c]) + ' meeting hours',
+            segs: [
+              { v: nw[c], color: 'var(--g-cust)', name: 'New customers and prospects, ' + SCEN[c] },
+              { v: meet[c] - nw[c], color: 'var(--g-est)', on: 'var(--on-est)', name: 'Established customers, ' + SCEN[c] }
+            ]
+          };
+        })
+      });
+    }
+
+    /* open answers */
+    function fillAnswers(id, key) {
+      var ul = $(id); ul.innerHTML = '';
+      var any = false;
+      list.forEach(function (x) {
+        if (!x[key]) return;
+        any = true;
+        var li = h('li');
+        li.appendChild(document.createTextNode(x[key]));
+        var m = h('span', 'meta');
+        m.textContent = x.role || 'Role not given';
+        li.appendChild(m); ul.appendChild(li);
+      });
+      if (!any) ul.appendChild(h('li', null, '<span class="small">No answers yet.</span>'));
+    }
+    fillAnswers('ans-stop', 'qStop');
+    fillAnswers('ans-hours', 'qHours');
+
+    renderPeople(list);
+  }
+
+  var tip = document.createElement('div');
+  tip.id = 'tip'; tip.hidden = true; tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  function showTip(val, name, x, y) {
+    tip.innerHTML = '';
+    var b = document.createElement('b'); b.textContent = val;
+    var sp = document.createElement('span'); sp.textContent = name;
+    tip.appendChild(b); tip.appendChild(sp);
+    tip.hidden = false;
+    var w = tip.offsetWidth, hh = tip.offsetHeight;
+    var vx = Math.min(x + 14, window.innerWidth - w - 8), vy = y + 14;
+    if (vy + hh > window.innerHeight - 8) vy = y - hh - 10;
+    tip.style.left = Math.max(8, vx) + 'px';
+    tip.style.top = Math.max(8, vy) + 'px';
+  }
+  function hideTip() { tip.hidden = true; }
+  document.addEventListener('pointerdown', function (e) { if (!(e.target.classList && e.target.classList.contains('seg'))) hideTip(); });
+
+  function niceAxis(maxVal, minTop) {
+    var steps = [1, 2, 5, 10, 20, 50, 100, 200, 500], step = steps[steps.length - 1];
+    for (var i = 0; i < steps.length; i++) { if (maxVal / steps[i] <= 6) { step = steps[i]; break; } }
+    var top = Math.max(minTop || 0, Math.ceil(maxVal / step) * step);
+    if (top < step) top = step;
+    return { top: top, step: step };
+  }
+
+  function fitLabels() {
+    var segs = document.querySelectorAll('#view-results .seg');
+    for (var i = 0; i < segs.length; i++) {
+      var sg = segs[i], sl = sg.firstChild;
+      if (!sl) continue;
+      sg.style.justifyContent = 'center'; sg.style.paddingLeft = '0'; sg.style.paddingRight = '0';
+      var ok = sg.clientWidth >= sl.offsetWidth + 10;
+      var tg = ok ? sg.parentNode.parentNode.querySelector('.target') : null;
+      if (tg) {
+        var tx = tg.getBoundingClientRect().left, lr = sl.getBoundingClientRect();
+        if (tx > lr.left - 4 && tx < lr.right + 4) {
+          var toRight = tx < (lr.left + lr.right) / 2;
+          sg.style.justifyContent = toRight ? 'flex-end' : 'flex-start';
+          sg.style[toRight ? 'paddingRight' : 'paddingLeft'] = '8px';
+          lr = sl.getBoundingClientRect();
+          if (tx > lr.left - 4 && tx < lr.right + 4) ok = false;
+        }
+      }
+      sl.style.visibility = ok ? 'visible' : 'hidden';
+    }
+  }
+  window.addEventListener('resize', fitLabels);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitLabels);
+
+  function renderBars(host, spec) {
+    host.innerHTML = '';
+    var top = spec.axis.top, step = spec.axis.step;
+    var keys = h('ul', 'keys');
+    spec.keys.forEach(function (k) {
+      var li = h('li'), sw = h('span', k.dash ? 'kt' : 'k'), tx = h('span');
+      if (!k.dash) sw.style.background = k.color;
+      tx.textContent = k.name;
+      li.appendChild(sw); li.appendChild(tx); keys.appendChild(li);
+    });
+    host.appendChild(keys);
+
+    var wrap = h('div', 'bars');
+    spec.rows.forEach(function (r) {
+      var row = h('div', 'brow');
+      row.setAttribute('role', 'group');
+      row.setAttribute('aria-label', r.aria);
+      var nm = h('div', 'bname'), n = h('span', 'n'), t = h('span', 't');
+      n.textContent = r.name; t.textContent = r.big;
+      nm.appendChild(n); nm.appendChild(t);
+      if (r.small) { var sm = h('span', 's'); sm.textContent = r.small; nm.appendChild(sm); }
+      row.appendChild(nm);
+      var plot = h('div', 'plot'), sum = 0;
+      r.segs.forEach(function (sg) { if (sg.v > 0) sum += sg.v; });
+      var track = h('div', 'track');
+      track.style.width = Math.min(100, sum / top * 100) + '%';
+      r.segs.forEach(function (sg) {
+        if (!(sg.v > 0)) return;
+        var el = h('div', 'seg'), sl = h('span', 'sl');
+        el.style.flex = sg.v + ' 1 0%';
+        el.style.setProperty('--sc', sg.color);
+        if (sg.on) el.style.color = sg.on;
+        sl.textContent = f1(sg.v);
+        el.appendChild(sl);
+        var pct = sum > 0 ? Math.round(sg.v / sum * 100) : 0;
+        var label = sg.name + ': ' + f1(sg.v) + ' hours, ' + pct + ' percent';
+        var tv = f1(sg.v) + ' h · ' + pct + '%';
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('aria-label', label);
+        el.addEventListener('pointerenter', function (e) { showTip(tv, sg.name, e.clientX, e.clientY); });
+        el.addEventListener('pointermove', function (e) { showTip(tv, sg.name, e.clientX, e.clientY); });
+        el.addEventListener('pointerleave', hideTip);
+        el.addEventListener('focus', function () { var b = el.getBoundingClientRect(); showTip(tv, sg.name, b.left + b.width / 2, b.top + b.height / 2); });
+        el.addEventListener('blur', hideTip);
+        track.appendChild(el);
+      });
+      plot.appendChild(track);
+      if (spec.target) {
+        var tl = h('i', 'target');
+        tl.style.left = (spec.target / top * 100) + '%';
+        plot.appendChild(tl);
+      }
+      row.appendChild(plot);
+      wrap.appendChild(row);
+    });
+
+    var ax = h('div', 'brow axis');
+    ax.appendChild(h('div'));
+    var ap = h('div', 'plot');
+    for (var v = 0; v <= top + 1e-9; v += step) {
+      var tk = h('span', 'tick');
+      tk.style.left = (v / top * 100) + '%';
+      tk.textContent = String(round2(v));
+      ap.appendChild(tk);
+    }
+    ax.appendChild(ap);
+    wrap.appendChild(ax);
+    host.appendChild(wrap);
+    if (window.requestAnimationFrame) window.requestAnimationFrame(fitLabels);
+  }
+
+  function renderPeople(list) {
+    var token = ++renderToken, ul = $('res-people');
+    var ids = list.filter(function (x) { return !x._sample; }).map(function (x) { return x._id; });
+    var done = function (ps) {
+      if (token !== renderToken) return;
+      ul.innerHTML = '';
+      list.forEach(function (x, i) {
+        var li = h('li');
+        var left = h('div');
+        var nm = h('div', 'rname');
+        nm.textContent = x._sample ? 'Sample respondent ' + (i + 1) : (x.name || 'Anonymous');
+        var mt = h('div', 'rmeta');
+        mt.textContent = [x.role, x.tenure, x.territory, whenText(x.submittedAt)].filter(Boolean).join(' · ');
+        left.appendChild(nm); left.appendChild(mt); li.appendChild(left);
+        if (!x._sample) {
+          var b = h('button', 'btn sm', 'Remove');
+          b.type = 'button';
+          b.setAttribute('aria-label', 'Remove this response');
+          var armed = false, timer = null;
+          b.addEventListener('click', function () {
+            if (!armed) {
+              armed = true; b.textContent = 'Confirm remove';
+              timer = setTimeout(function () { armed = false; b.textContent = 'Remove'; }, 4000);
+              return;
+            }
+            clearTimeout(timer); b.disabled = true;
+            postJson({ action: 'delete', key: ownerKey, id: x._id }).then(function () {
+              liveRes = liveRes.filter(function (r) { return r._id !== x._id; });
+              renderResults();
+              $('res-status').textContent = 'Response removed.';
+            }, function () {
+              b.disabled = false; armed = false; b.textContent = 'Remove';
+              $('res-status').textContent = 'Could not remove that response.';
+            });
+          });
+          li.appendChild(b);
+        }
+        ul.appendChild(li);
+      });
+    };
+    done(null);
+  }
+
+  function resultsCsv(list) {
+    var out = [['Response', 'Role', 'Time in role', 'Territory', 'Historical period', 'Group', 'Item', 'Detail', SCEN[0] + ' (h)', SCEN[1] + ' (h)', SCEN[2] + ' (h)']];
+    list.forEach(function (x, i) {
+      ROWS.forEach(function (r) {
+        var v = x.rows && x.rows[r.id];
+        if (!v) return;
+        var detail = r.sub || '';
+        if (r.id === 'other' && x.otherNote) detail = x.otherNote;
+        if (r.memo) detail = 'Memo, not in total';
+        out.push([i + 1, x.role || '', x.tenure || '', x.territory || '', x.period || '', GN[r.g], r.label, detail].concat(v));
+      });
+    });
+    out.push([]);
+    out.push(['Response', 'Task to stop or hand off', 'What five hours back would go to']);
+    list.forEach(function (x, i) { if (x.qStop || x.qHours) out.push([i + 1, x.qStop || '', x.qHours || '']); });
+    return toCsv(out);
+  }
+  $('res-role').addEventListener('change', renderResults);
+  $('btn-preview').addEventListener('click', function () { preview = !preview; renderResults(); });
+  $('btn-dl').addEventListener('click', function () {
+    var txt = resultsCsv(currentList()), st = $('res-status');
+    try {
+      var blob = new Blob([txt], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'time-allocation-responses.csv';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      st.textContent = 'Downloaded.';
+    } catch (err) { st.textContent = 'Could not download. Use Copy CSV.'; }
+  });
+  $('btn-copycsv').addEventListener('click', function () {
+    var txt = resultsCsv(currentList()), st = $('res-status');
+    try {
+      navigator.clipboard.writeText(txt).then(function () { st.textContent = 'Copied. Paste it into a spreadsheet.'; },
+        function () { st.textContent = 'Copying is blocked in this view. Use Download CSV.'; });
+    } catch (e) { st.textContent = 'Copying is blocked in this view. Use Download CSV.'; }
+  });
+
+  /* ---------- Tabs ---------- */
+  function showView(v, setHash) {
+    view = (v === 'results' && isAdmin) ? 'results' : 'survey';
+    $('view-survey').hidden = view !== 'survey';
+    $('view-results').hidden = view !== 'results';
+    $('tab-survey').setAttribute('aria-pressed', String(view === 'survey'));
+    $('tab-results').setAttribute('aria-pressed', String(view === 'results'));
+    if (setHash) { try { location.hash = view; } catch (e) {} }
+    if (view === 'results') renderResults();
+  }
+  $('tab-survey').addEventListener('click', function () { showView('survey', true); });
+  $('tab-results').addEventListener('click', function () { showView('results', true); });
+  window.addEventListener('hashchange', function () {
+    var v = (location.hash || '').replace('#', '');
+    if (v === 'results' || v === 'survey') showView(v, false);
+  });
+
+  /* ---------- Talking to the Apps Script backend ---------- */
+  function postJson(obj) {
+    return fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(obj) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (!j || !j.ok) throw (j || new Error('failed')); return j; });
+  }
+  function loadRows() {
+    return postJson({ action: 'list', key: ownerKey }).then(function (j) {
+      liveRes = (j.rows || []).map(function (o) { o._id = o.id || o._id; return o; })
+        .sort(function (p, q) { return String(q.submittedAt).localeCompare(String(p.submittedAt)); });
+      if (view === 'results') renderResults();
+      else $('tab-results').textContent = 'Results' + (liveRes.length ? ' (' + liveRes.length + ')' : '');
+    });
+  }
+  function enterOwnerMode(key) {
+    ownerKey = key; isAdmin = true; ssSet('ta_key', key);
+    $('gate').hidden = true; $('tabs').hidden = false; $('owner').hidden = false;
+    $('res-status').textContent = '';
+    return loadRows().then(function () { showView('results', false); });
+  }
+  function tryOwner(key) {
+    if (!ENDPOINT) { $('gate-msg').textContent = 'Submitting is not set up yet (no backend address in config.js).'; return; }
+    ownerKey = key;
+    return postJson({ action: 'list', key: key }).then(function () { return enterOwnerMode(key); }, function () {
+      ownerKey = ''; ssSet('ta_key', '');
+      $('gate').hidden = false;
+      $('gate-msg').textContent = 'That key was not accepted.';
+    });
+  }
+  $('gate-form').addEventListener('submit', function (e) { e.preventDefault(); tryOwner($('owner-key').value.trim()); });
+  $('btn-refresh').addEventListener('click', function () {
+    $('res-status').textContent = 'Refreshing.';
+    loadRows().then(function () { $('res-status').textContent = 'Up to date.'; }, function () { $('res-status').textContent = 'Could not refresh.'; });
+  });
+
+  function restoreLocal() {
+    var raw = lsGet('ta_last');
+    if (!raw) return;
+    try { var d = JSON.parse(raw); applySaved(d); showSavedNote(d.submittedAt, true); } catch (e) {}
+  }
+  function initPage() {
+    restoreLocal();
+    var key = ssGet('ta_key');
+    if ((location.hash || '') === '#results' || key) {
+      if (key) tryOwner(key); else $('gate').hidden = false;
+    }
+  }
+  window.addEventListener('hashchange', function () {
+    if ((location.hash || '') === '#results' && !isAdmin) $('gate').hidden = false;
+  });
+
+  setInputs();
+  update();
+  initPage();
+})();
+</script>
+</body>
+</html>
