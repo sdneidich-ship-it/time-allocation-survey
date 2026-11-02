@@ -226,19 +226,6 @@
     </div>
   </header>
 
-  <section id="gate" hidden>
-    <h2>Survey owner</h2>
-    <p class="small">Enter the owner key to see results. Respondents never need this.</p>
-    <form class="tools" id="gate-form" autocomplete="off">
-      <div class="field" style="flex:0 1 320px">
-        <label for="owner-key">Owner key</label>
-        <input class="txt" type="password" id="owner-key" autocomplete="off">
-      </div>
-      <button class="btn primary" type="submit">Open results</button>
-      <span class="small" id="gate-msg" role="status" aria-live="polite"></span>
-    </form>
-  </section>
-
   <div class="stack" id="view-survey">
     <div class="proto" id="owner" hidden>
       <p><b>Survey owner tools.</b> Only editors see this panel. Sample answers are for previewing the form and cannot be submitted.</p>
@@ -401,6 +388,18 @@
       </section>
     </div>
   </div>
+  <section id="gate" hidden style="margin-top:40px;padding-top:24px;border-top:1px solid var(--line, #3a3a3a)">
+    <h2>Survey owner</h2>
+    <p class="small">Enter the owner key to see results. Respondents never need this.</p>
+    <form class="tools" id="gate-form" autocomplete="off">
+      <div class="field" style="flex:0 1 320px">
+        <label for="owner-key">Owner key</label>
+        <input class="txt" type="password" id="owner-key" autocomplete="off">
+      </div>
+      <button class="btn primary" type="submit">Open results</button>
+      <span class="small" id="gate-msg" role="status" aria-live="polite"></span>
+    </form>
+  </section>
 </main>
 
 <script src="config.js"></script>
@@ -1217,15 +1216,16 @@
     if (!raw) return;
     try { var d = JSON.parse(raw); applySaved(d); showSavedNote(d.submittedAt, true); } catch (e) {}
   }
+  function showGate() { $('gate').hidden = false; if ($('gate').scrollIntoView) $('gate').scrollIntoView(); $('owner-key').focus(); }
   function initPage() {
     restoreLocal();
     var key = ssGet('ta_key');
     if ((location.hash || '') === '#results' || key) {
-      if (key) tryOwner(key); else $('gate').hidden = false;
+      if (key) tryOwner(key); else showGate();
     }
   }
   window.addEventListener('hashchange', function () {
-    if ((location.hash || '') === '#results' && !isAdmin) $('gate').hidden = false;
+    if ((location.hash || '') === '#results' && !isAdmin) showGate();
   });
 
   setInputs();
